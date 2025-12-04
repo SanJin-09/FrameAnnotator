@@ -33,32 +33,48 @@ function UploadPage() {
   };
 
   return (
-    <main style={{ margin: "2rem auto", maxWidth: 600 }}>
-      <h1>视频抽帧与标注</h1>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1rem" }}>
-        <label>
-          视频文件 (mp4)
-          <input
-            type="file"
-            accept="video/mp4"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-        </label>
+    <div className="page">
+      <div className="shell">
+        <div className="panel glass card-padding">
+          <h1 className="serif">Frame Annotator</h1>
+          <p className="heading-sub">监控视频抽帧与人头姿态标注工具</p>
+        </div>
 
-        <label>
-          抽帧 FPS
-          <input
-            type="number"
-            min={1}
-            value={fps}
-            onChange={(event) => setFps(parseInt(event.target.value, 10) || 1)}
-          />
-        </label>
+        <div className="panel card-padding">
+          <form className="layout" onSubmit={handleSubmit}>
+            <div className="grid-two">
+              <label className="field">
+                <span className="section-title">视频文件 (mp4)</span>
+                <input
+                  className="input"
+                  type="file"
+                  accept="video/mp4"
+                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
 
-        <button type="submit">开始抽帧</button>
-      </form>
-      {status && <p>{status}</p>}
-    </main>
+              <label className="field">
+                <span className="section-title">抽帧 FPS</span>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  value={fps}
+                  onChange={(event) => setFps(parseInt(event.target.value, 10) || 1)}
+                />
+              </label>
+            </div>
+
+            <div className="button-row">
+              <button type="submit" className="soft-button primary">
+                开始抽帧
+              </button>
+              <div className="status">{status}</div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }
 

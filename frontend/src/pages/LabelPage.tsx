@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import apiClient from "../api/client";
-import FrameNavigator from "../components/FrameNavigator";
 import ImageCropper, { BBox } from "../components/ImageCropper";
 
 type FrameMeta = {
@@ -11,6 +10,149 @@ type FrameMeta = {
   bbox?: BBox;
   crop_name?: string;
 };
+
+const styles = {
+  pageContainer: {
+    height: "100vh",
+    width: "100vw",
+    display: "flex",
+    flexDirection: "column" as const,
+    backgroundColor: "#ffffff",
+    color: "#1a1a1a",
+    fontFamily: '"Inter", "Helvetica Neue", sans-serif',
+    overflow: "hidden",
+  },
+  header: {
+    height: "64px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 32px",
+    borderBottom: "1px solid #e5e5e5",
+    backgroundColor: "#ffffff",
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontFamily: '"Playfair Display", serif', // Assuming serif font is available
+    fontSize: "1.25rem",
+    fontWeight: 600,
+    color: "#111",
+    letterSpacing: "-0.02em",
+  },
+  headerActions: {
+    display: "flex",
+    gap: "16px",
+    alignItems: "center",
+  },
+  mainWorkspace: {
+    flex: 1,
+    display: "flex",
+    overflow: "hidden", // Prevents body scroll
+  },
+  canvasArea: {
+    flex: 1,
+    backgroundColor: "#f9f9f9", // Soft grey for contrast
+    position: "relative" as const,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+  },
+  sidebar: {
+    width: "320px",
+    backgroundColor: "#ffffff",
+    borderLeft: "1px solid #e5e5e5",
+    display: "flex",
+    flexDirection: "column" as const,
+    padding: "32px 24px",
+    gap: "32px",
+    boxShadow: "-5px 0 20px rgba(0,0,0,0.02)",
+    overflowY: "auto" as const,
+  },
+  filmstripContainer: {
+    height: "100px",
+    borderTop: "1px solid #e5e5e5",
+    backgroundColor: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "0 24px",
+    overflowX: "auto" as const,
+    whiteSpace: "nowrap" as const,
+  },
+  // UI Elements
+  button: {
+    padding: "8px 16px",
+    border: "1px solid #e0e0e0",
+    borderRadius: "4px",
+    backgroundColor: "transparent",
+    fontSize: "0.85rem",
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    fontWeight: 500,
+  },
+  primaryButton: {
+    backgroundColor: "#111",
+    color: "#fff",
+    border: "1px solid #111",
+  },
+  ghostButton: {
+    border: "none",
+    color: "#666",
+  },
+  labelGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "12px",
+  },
+  labelBtn: {
+    aspectRatio: "1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid #eee",
+    borderRadius: "8px",
+    fontSize: "1.2rem",
+    cursor: "pointer",
+    backgroundColor: "#fff",
+    transition: "all 0.2s",
+  },
+  activeLabelBtn: {
+    backgroundColor: "#111",
+    color: "#fff",
+    borderColor: "#111",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+  },
+  thumb: {
+    height: "70px",
+    width: "auto",
+    borderRadius: "4px",
+    border: "2px solid transparent",
+    cursor: "pointer",
+    opacity: 0.7,
+    transition: "all 0.2s",
+  },
+  thumbActive: {
+    borderColor: "#111",
+    opacity: 1,
+    transform: "scale(1.05)",
+  },
+  statusText: {
+    fontSize: "0.75rem",
+    color: "#888",
+    marginTop: "8px",
+    textAlign: "center" as const,
+  },
+  sectionTitle: {
+    fontSize: "0.75rem",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.1em",
+    color: "#999",
+    marginBottom: "16px",
+    fontWeight: 600,
+  }
+};
+
 
 function LabelPage() {
   const { sessionId } = useParams();
@@ -145,84 +287,148 @@ function LabelPage() {
     }
   };
 
+  const handlePrev = () => setCurrentIndex((index) => Math.max(index - 1, 0));
+  const handleNext = () => setCurrentIndex((index) => Math.min(index + 1, visibleFrames.length - 1));
+
   return (
-    <main style={{ display: "grid", gap: "1rem", padding: "1.5rem" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h2>标注页面</h2>
-          <p>Session: {sessionId ?? "未提供"}</p>
-          <p>总计：{frames.length}，已标注：{frames.filter((name) => frameMeta[name]?.labeled).length}</p>
+    <div style={styles.pageContainer}>
+      
+      {/* 1. Header: Slim, clean, global actions only */}
+      <header style={styles.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2 style={styles.headerTitle}>姿态标注</h2>
+          <span style={{ fontSize: '0.8rem', color: '#999', paddingTop: '4px' }}>
+            {sessionId}
+          </span>
         </div>
-        <FrameNavigator
-          currentIndex={currentIndex}
-          total={visibleFrames.length}
-          onPrev={() => setCurrentIndex((index) => Math.max(index - 1, 0))}
-          onNext={() => setCurrentIndex((index) => Math.min(index + 1, visibleFrames.length - 1))}
-        />
+        
+        <div style={styles.headerActions}>
+           <div style={{ fontSize: '0.85rem', color: '#666', marginRight: '12px' }}>
+              进度: {frames.filter((name) => frameMeta[name]?.labeled).length} / {frames.length}
+           </div>
+           <button 
+             type="button" 
+             style={{ ...styles.button, ...styles.ghostButton }}
+             onClick={() => setFilterUnlabeled((prev) => !prev)}
+           >
+             {filterUnlabeled ? "显示全部" : "只看未标注"}
+           </button>
+           <button 
+             type="button" 
+             style={styles.button}
+             onClick={() => fetchData()}
+           >
+             刷新
+           </button>
+           <button 
+             type="button" 
+             style={{...styles.button, borderColor: '#111', color: '#111'}}
+             onClick={exportDataset}
+           >
+             导出数据
+           </button>
+        </div>
       </header>
 
-      <section style={{ display: "grid", gap: "0.75rem" }}>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          <button type="button" onClick={() => setFilterUnlabeled((prev) => !prev)}>
-            {filterUnlabeled ? "显示全部" : "只看未标注"}
-          </button>
-          <button type="button" onClick={() => fetchData()}>刷新状态</button>
+      {/* 2. Main Workspace: Canvas + Sidebar */}
+      <div style={styles.mainWorkspace}>
+        
+        {/* Left: The Canvas (Flex Grow) */}
+        <div style={styles.canvasArea}>
+          {/* Constrain the cropper so it doesn't overflow */}
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+             <ImageCropper imageUrl={imageUrl} value={bbox} onChange={setBbox} />
+          </div>
+          
+          {/* Floating Frame Tag */}
+          <div style={{ position: 'absolute', top: 20, left: 20, background: 'rgba(255,255,255,0.9)', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+            当前帧: {currentFrame ?? "-"}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "0.25rem" }}>
-          {visibleFrames.map((name, idx) => {
-            const labeled = frameMeta[name]?.labeled;
-            const url = `${apiClient.defaults.baseURL}/api/videos/${sessionId}/frames/${name}`;
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setCurrentIndex(idx)}
-                style={{
-                  border: idx === currentIndex ? "2px solid #1e90ff" : "1px solid #ccc",
-                  padding: 2,
-                  background: labeled ? "#e6ffed" : "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                <img src={url} alt={name} style={{ width: 96, height: 54, objectFit: "cover", display: "block" }} />
-                <small style={{ display: "block", textAlign: "center" }}>
-                  {labeled ? "✅" : "⬜️"} {name}
-                </small>
-              </button>
-            );
-          })}
-        </div>
-      </section>
 
-      <ImageCropper imageUrl={imageUrl} value={bbox} onChange={setBbox} />
+        {/* Right: The Control Panel (Fixed Width) */}
+        <aside style={styles.sidebar}>
+          
+          {/* Navigator Group */}
+          <div>
+            <div style={styles.sectionTitle}>导航</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" style={{ ...styles.button, flex: 1 }} onClick={handlePrev}>Prev</button>
+              <button type="button" style={{ ...styles.button, flex: 1 }} onClick={handleNext}>Next</button>
+            </div>
+          </div>
 
-      <section style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        {[1, 2, 3, 4, 5, 6].map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setSelectedLabel(value)}
-            style={{
-              padding: "0.5rem 0.75rem",
-              background: selectedLabel === value ? "#1e90ff" : "#f2f2f2",
-              color: selectedLabel === value ? "#fff" : "#000",
-              border: "1px solid #ccc",
-              borderRadius: 4,
-            }}
-          >
-            {value}
-          </button>
-        ))}
-        <button type="button" onClick={submitLabel}>
-          保存并下一张
-        </button>
-        <button type="button" onClick={exportDataset}>
-          导出数据集
-        </button>
-      </section>
+          <hr style={{ border: 'none', borderTop: '1px solid #f0f0f0' }} />
 
-      {status && <p>{status}</p>}
-    </main>
+          {/* Label Group */}
+          <div>
+            <div style={styles.sectionTitle}>分类标签</div>
+            <div style={styles.labelGrid}>
+              {[1, 2, 3, 4, 5, 6].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  style={selectedLabel === value ? { ...styles.labelBtn, ...styles.activeLabelBtn } : styles.labelBtn}
+                  onClick={() => setSelectedLabel(value)}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Group */}
+          <div style={{ marginTop: 'auto' }}>
+            {bbox && (
+              <div style={{ marginBottom: '12px', fontSize: '0.75rem', color: '#999', fontFamily: 'monospace' }}>
+                 X:{Math.round(bbox.x)} Y:{Math.round(bbox.y)} W:{Math.round(bbox.width)} H:{Math.round(bbox.height)}
+              </div>
+            )}
+            
+            <button 
+              type="button" 
+              style={{ ...styles.button, ...styles.primaryButton, width: '100%', padding: '14px' }}
+              onClick={submitLabel}
+            >
+              保存并下一张
+            </button>
+            
+            {status && <div style={styles.statusText}>{status}</div>}
+          </div>
+
+        </aside>
+      </div>
+
+      {/* 3. Footer: Filmstrip (Thumbnails) */}
+      <div style={styles.filmstripContainer}>
+        {visibleFrames.map((name, idx) => {
+          const labeled = frameMeta[name]?.labeled;
+          const isActive = idx === currentIndex;
+          const url = `${apiClient.defaults.baseURL}/api/videos/${sessionId}/frames/${name}`;
+          
+          return (
+            <div 
+              key={name} 
+              onClick={() => setCurrentIndex(idx)}
+              style={{ position: 'relative', display: 'inline-block' }}
+            >
+               <img 
+                 src={url} 
+                 alt={name} 
+                 style={isActive ? { ...styles.thumb, ...styles.thumbActive } : styles.thumb}
+               />
+               {labeled && (
+                 <div style={{
+                   position: 'absolute', top: 4, right: 4, width: 8, height: 8, 
+                   borderRadius: '50%', backgroundColor: '#0f6fff', border: '1px solid #fff'
+                 }} />
+               )}
+            </div>
+          );
+        })}
+      </div>
+
+    </div>
   );
 }
 

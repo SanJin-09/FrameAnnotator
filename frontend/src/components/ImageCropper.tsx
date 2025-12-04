@@ -136,7 +136,7 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
   };
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: "1rem", width: "100%" }}>
+    <div className="card-padding" style={{ width: "100%" }}>
       {imageUrl ? (
         <canvas
           ref={canvasRef}
@@ -146,11 +146,10 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
           onPointerUp={handlePointerUp}
         />
       ) : (
-        <p>选择一帧后显示图像</p>
+        <p className="status">选择一帧后显示图像</p>
       )}
-      <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <span>裁剪框:</span>
-        <code>{value ? JSON.stringify(value) : "未设置"}</code>
+      <div className="status" style={{ marginTop: "8px" }}>
+        {value ? `x ${value.x}, y ${value.y}, w ${value.width}, h ${value.height}` : "等待裁剪框"}
       </div>
     </div>
   );
