@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile
 
 from app.core import config, utils
 
-MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
+MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024  # 5 GB
 ALLOWED_CONTENT_TYPES = {"video/mp4", "application/octet-stream"}
 MAX_CONCURRENT_EXTRACTIONS = 2
 
@@ -79,7 +79,7 @@ async def store_video(file: UploadFile, session_id: str) -> Path:
                     break
                 size += len(chunk)
                 if size > MAX_FILE_SIZE:
-                    raise HTTPException(status_code=413, detail="文件过大，超过 2GB 限制")
+                    raise HTTPException(status_code=413, detail="文件过大，超过 5GB 限制")
                 buffer.write(chunk)
     except HTTPException:
         destination.unlink(missing_ok=True)
