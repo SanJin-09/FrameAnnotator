@@ -425,14 +425,21 @@ function LabelPage() {
           <div>
             <div style={styles.sectionTitle}>分类标签</div>
             <div style={styles.labelGrid}>
-              {[1, 2, 3, 4, 5, 6].map((value) => (
+              {[
+                { value: 1, text: "上" },
+                { value: 2, text: "下" },
+                { value: 3, text: "左" },
+                { value: 4, text: "右" },
+                { value: 5, text: "左歪" },
+                { value: 6, text: "右歪" },
+              ].map(({ value, text }) => (
                 <button
-                  key={value}
+                  key={text}
                   type="button"
                   style={selectedLabel === value ? { ...styles.labelBtn, ...styles.activeLabelBtn } : styles.labelBtn}
                   onClick={() => setSelectedLabel(value)}
                 >
-                  {value}
+                  {text}
                 </button>
               ))}
             </div>

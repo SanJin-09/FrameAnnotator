@@ -139,7 +139,7 @@ def export_dataset(session_id: str) -> Optional[Path]:
         for frame in frames:
             if frame.get("labeled") and "crop_name" in frame and "label" in frame:
                 crop_name = frame["crop_name"]
-                label_lines.append(f"{crop_name} {frame['label']}")
+                label_lines.append(f"{crop_name};{frame['label']}")
                 crop_path = config.CROPS_DIR / session_id / crop_name
                 if crop_path.exists():
                     archive.write(crop_path, arcname=crop_name)
