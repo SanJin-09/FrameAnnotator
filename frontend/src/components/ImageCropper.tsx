@@ -9,6 +9,8 @@ export type BBox = {
 
 type Props = {
   imageUrl: string | null;
+  cropSize: number | null;
+  canSelect: boolean;
   value: BBox | null;
   onChange?: (bbox: BBox) => void;
 };
@@ -27,23 +29,17 @@ type DrawBox = {
 
 const MAX_DISPLAY_WIDTH = 720;
 
-function ImageCropper({ imageUrl, value, onChange }: Props) {
+function ImageCropper({ imageUrl, value, onChange, cropSize, canSelect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [loaded, setLoaded] = useState<LoadedImage | null>(null);
   const [drawBox, setDrawBox] = useState<DrawBox | null>(null);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-
-  const scale = useMemo(() => {
-    if (!loaded) return 1;
-    const displayWidth = Math.min(MAX_DISPLAY_WIDTH, loaded.naturalWidth);
-    return loaded.naturalWidth / displayWidth;
-  }, [loaded]);
 
   const displaySize = useMemo(() => {
     if (!loaded) return { width: 0, height: 0 };
     const displayWidth = Math.min(MAX_DISPLAY_WIDTH, loaded.naturalWidth);
+    const scale = loaded.naturalWidth / displayWidth;
     return { width: displayWidth, height: loaded.naturalHeight / scale };
-  }, [loaded, scale]);
+  }, [loaded]);
 
   // Load image
   useEffect(() => {
@@ -64,10 +60,12 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
   // Sync external bbox into draw space
   useEffect(() => {
     if (!loaded || !value) return;
-    const { x, y, width, height } = value;
-    const size = Math.max(width, height) / scale;
-    setDrawBox({ x: x / scale, y: y / scale, size });
-  }, [loaded, value, scale]);
+    const scaleX = loaded.naturalWidth / displaySize.width;
+    const size = Math.max(value.width, value.height) / scaleX;
+    const clampedX = Math.max(0, Math.min(value.x / scaleX, displaySize.width - size));
+    const clampedY = Math.max(0, Math.min(value.y / scaleX, displaySize.height - size));
+    setDrawBox({ x: clampedX, y: clampedY, size });
+  }, [loaded, value, displaySize.width, displaySize.height]);
 
   // Draw image + overlay
   useEffect(() => {
@@ -92,47 +90,35 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
     }
   }, [loaded, drawBox, displaySize]);
 
-  const toNatural = (box: DrawBox): BBox => ({
-    x: Math.round(box.x * scale),
-    y: Math.round(box.y * scale),
-    width: Math.round(box.size * scale),
-    height: Math.round(box.size * scale),
-  });
-
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!loaded) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    setDragStart({ x, y });
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!dragStart || !loaded) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    const dx = x - dragStart.x;
-    const dy = y - dragStart.y;
-    const size = Math.max(Math.abs(dx), Math.abs(dy));
-
-    const boxX = dx >= 0 ? dragStart.x : dragStart.x - size;
-    const boxY = dy >= 0 ? dragStart.y : dragStart.y - size;
-
-    const clamped = clampBox(boxX, boxY, size, displaySize.width, displaySize.height);
-    setDrawBox(clamped);
-  };
-
-  const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!dragStart || !drawBox || !onChange) {
-      setDragStart(null);
-      return;
+    if (!loaded || !onChange || !canSelect || !cropSize) return;
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const xOnCanvas = (event.clientX - rect.left) * (canvas.width / rect.width);
+    const yOnCanvas = (event.clientY - rect.top) * (canvas.height / rect.height);
+    const scaleX = loaded.naturalWidth / canvas.width;
+    const scaleY = loaded.naturalHeight / canvas.height;
+    const naturalCenterX = xOnCanvas * scaleX;
+    const naturalCenterY = yOnCanvas * scaleY;
+    const maxSize = Math.min(cropSize, loaded.naturalWidth, loaded.naturalHeight);
+    const half = maxSize / 2;
+    let bx = Math.round(naturalCenterX - half);
+    let by = Math.round(naturalCenterY - half);
+    if (bx < 0) bx = 0;
+    if (by < 0) by = 0;
+    if (bx + maxSize > loaded.naturalWidth) {
+      bx = loaded.naturalWidth - maxSize;
     }
-    onChange(toNatural(drawBox));
-    setDragStart(null);
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (by + maxSize > loaded.naturalHeight) {
+      by = loaded.naturalHeight - maxSize;
+    }
+    const bbox = { x: bx, y: by, width: maxSize, height: maxSize };
+    onChange(bbox);
+    setDrawBox({
+      x: bbox.x / scaleX,
+      y: bbox.y / scaleY,
+      size: bbox.width / scaleX,
+    });
   };
 
   return (
@@ -142,8 +128,6 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
           ref={canvasRef}
           style={{ width: "100%", maxWidth: `${MAX_DISPLAY_WIDTH}px`, touchAction: "none", display: "block" }}
           onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
         />
       ) : (
         <p className="status">选择一帧后显示图像</p>
@@ -153,21 +137,6 @@ function ImageCropper({ imageUrl, value, onChange }: Props) {
       </div>
     </div>
   );
-}
-
-function clampBox(x: number, y: number, size: number, maxWidth: number, maxHeight: number): DrawBox {
-  let cx = x;
-  let cy = y;
-  let csize = size;
-
-  if (cx < 0) cx = 0;
-  if (cy < 0) cy = 0;
-  if (cx + csize > maxWidth) csize = maxWidth - cx;
-  if (cy + csize > maxHeight) csize = maxHeight - cy;
-
-  // 防止裁剪框塌缩
-  csize = Math.max(10, csize);
-  return { x: cx, y: cy, size: csize };
 }
 
 export default ImageCropper;

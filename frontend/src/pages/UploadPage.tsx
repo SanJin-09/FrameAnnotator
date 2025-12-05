@@ -24,8 +24,8 @@ function UploadPage() {
       const { data } = await apiClient.post("/api/videos/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setStatus("上传成功，跳转到标注页面");
-      navigate(`/label/${data.session_id}`);
+      setStatus("上传成功，开始抽帧");
+      navigate(`/loading/${data.session_id}`);
     } catch (error) {
       console.error(error);
       setStatus("上传失败，请检查后端服务是否已启动");

@@ -161,6 +161,10 @@ function LabelPage() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedLabel, setSelectedLabel] = useState<number | null>(null);
   const [bbox, setBbox] = useState<BBox | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropSizeInput, setCropSizeInput] = useState<string>("128");
+  const [cropSize, setCropSize] = useState<number | null>(128);
+  const [cropSizeInvalid, setCropSizeInvalid] = useState<boolean>(false);
   const [status, setStatus] = useState<string>("");
   const [filterUnlabeled, setFilterUnlabeled] = useState<boolean>(false);
 
@@ -239,6 +243,26 @@ function LabelPage() {
     return `${apiClient.defaults.baseURL}/api/videos/${sessionId}/frames/${currentFrame}`;
   }, [sessionId, currentFrame]);
 
+  useEffect(() => {
+    if (!bbox || !imageUrl) {
+      setPreviewUrl(null);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 256;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, bbox.x, bbox.y, bbox.width, bbox.height, 0, 0, size, size);
+      setPreviewUrl(canvas.toDataURL("image/jpeg"));
+    };
+    img.src = imageUrl;
+  }, [bbox, imageUrl]);
+
   const submitLabel = async () => {
     if (!sessionId || !currentFrame || bbox === null || selectedLabel === null) {
       setStatus("请先选择标签并设置裁剪框");
@@ -287,9 +311,6 @@ function LabelPage() {
     }
   };
 
-  const handlePrev = () => setCurrentIndex((index) => Math.max(index - 1, 0));
-  const handleNext = () => setCurrentIndex((index) => Math.min(index + 1, visibleFrames.length - 1));
-
   return (
     <div style={styles.pageContainer}>
       
@@ -337,7 +358,13 @@ function LabelPage() {
         <div style={styles.canvasArea}>
           {/* Constrain the cropper so it doesn't overflow */}
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-             <ImageCropper imageUrl={imageUrl} value={bbox} onChange={setBbox} />
+             <ImageCropper
+               imageUrl={imageUrl}
+               value={bbox}
+               onChange={setBbox}
+               cropSize={cropSize}
+               canSelect={!cropSizeInvalid}
+             />
           </div>
           
           {/* Floating Frame Tag */}
@@ -349,12 +376,46 @@ function LabelPage() {
         {/* Right: The Control Panel (Fixed Width) */}
         <aside style={styles.sidebar}>
           
-          {/* Navigator Group */}
+          {/* Crop size */}
           <div>
-            <div style={styles.sectionTitle}>导航</div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button type="button" style={{ ...styles.button, flex: 1 }} onClick={handlePrev}>Prev</button>
-              <button type="button" style={{ ...styles.button, flex: 1 }} onClick={handleNext}>Next</button>
+          <div style={styles.sectionTitle}>选定框边长</div>
+            <input
+              type="number"
+              min={1}
+              value={cropSizeInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setCropSizeInput(raw);
+                const parsed = parseInt(raw, 10);
+                if (Number.isNaN(parsed) || parsed < 16) {
+                  setCropSizeInvalid(true);
+                  setCropSize(null);
+                } else {
+                  setCropSizeInvalid(false);
+                  setCropSize(parsed);
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: cropSizeInvalid ? '1px solid #d72638' : '1px solid #e5e5e5'
+              }}
+            />
+            {cropSizeInvalid && (
+              <div style={{ color: '#d72638', fontSize: '0.8rem', marginTop: '6px' }}>边长需 ≥ 16</div>
+            )}
+          </div>
+
+          {/* Preview */}
+          <div>
+            <div style={styles.sectionTitle}>预览</div>
+            <div style={{ border: '1px solid #f0f0f0', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+              {previewUrl ? (
+                <img src={previewUrl} alt="预览" style={{ width: '100%', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }} />
+              ) : (
+                <div style={{ color: '#aaa', fontSize: '0.85rem' }}>暂无选定框</div>
+              )}
             </div>
           </div>
 
@@ -384,15 +445,31 @@ function LabelPage() {
                  X:{Math.round(bbox.x)} Y:{Math.round(bbox.y)} W:{Math.round(bbox.width)} H:{Math.round(bbox.height)}
               </div>
             )}
-            
-            <button 
-              type="button" 
-              style={{ ...styles.button, ...styles.primaryButton, width: '100%', padding: '14px' }}
-              onClick={submitLabel}
-            >
-              保存并下一张
-            </button>
-            
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <button
+                type="button"
+                style={{
+                  ...styles.button,
+                  flex: 1,
+                  backgroundColor: bbox ? '#d72638' : '#fff',
+                  color: bbox ? '#fff' : '#888',
+                  borderColor: bbox ? '#d72638' : '#e0e0e0',
+                }}
+                onClick={() => {
+                  setBbox(null);
+                  setPreviewUrl(null);
+                }}
+              >
+                重选
+              </button>
+              <button 
+                type="button" 
+                style={{ ...styles.button, ...styles.primaryButton, flex: 1, padding: '14px' }}
+                onClick={submitLabel}
+              >
+                保存并下一张
+              </button>
+            </div>
             {status && <div style={styles.statusText}>{status}</div>}
           </div>
 

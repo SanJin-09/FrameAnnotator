@@ -1,4 +1,5 @@
 from pathlib import Path
+import asyncio
 from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -13,9 +14,14 @@ router = APIRouter()
 async def upload_video(file: UploadFile = File(...), fps: int = Form(...)):
     session_id = video_service.create_session(fps=fps)
     await video_service.store_video(file=file, session_id=session_id)
-    frames: List[str] = video_service.extract_frames(session_id=session_id, fps=fps)
-    label_service.initialize_session(session_id=session_id, fps=fps, frames=frames)
-    return {"session_id": session_id, "message": "video uploaded, extracting frames (stubbed)"}
+
+    async def run_extraction():
+        frames: List[str] = await asyncio.to_thread(video_service.extract_frames, session_id=session_id, fps=fps)
+        label_service.initialize_session(session_id=session_id, fps=fps, frames=frames)
+
+    asyncio.create_task(run_extraction())
+
+    return {"session_id": session_id, "message": "video uploaded, extracting frames"}
 
 
 @router.get("/{session_id}/status")

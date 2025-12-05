@@ -59,17 +59,6 @@ project_root/
   README.md
 ```
 
-## 7. 本地启动与联调
-
-- 依赖安装：
-  - 后端：`cd backend && pip install -r requirements.txt`
-  - 前端：`cd frontend && npm install`
-- 启动后端（默认 http://localhost:8000）：  
-  `uvicorn app.main:app --reload --app-dir backend`
-- 启动前端（默认 http://localhost:5173）：  
-  `cd frontend && npm run dev`
-- 访问流程：在前端 `/upload` 上传 mp4 + FPS，成功后自动跳转 `/label/{session_id}` 进行标注。
-
 ### 接口使用说明（本地环境）
 - 基础 URL：`http://localhost:8000`
 - 上传：`POST /api/videos/upload`（form-data: file, fps）
