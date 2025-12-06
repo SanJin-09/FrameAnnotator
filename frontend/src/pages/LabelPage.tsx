@@ -426,12 +426,13 @@ function LabelPage() {
             <div style={styles.sectionTitle}>分类标签</div>
             <div style={styles.labelGrid}>
               {[
-                { value: 1, text: "上" },
-                { value: 2, text: "下" },
-                { value: 3, text: "左" },
-                { value: 4, text: "右" },
-                { value: 5, text: "左歪" },
-                { value: 6, text: "右歪" },
+                { value: 1, text: "正" },
+                { value: 2, text: "上" },
+                { value: 3, text: "下" },
+                { value: 4, text: "左" },
+                { value: 5, text: "右" },
+                { value: 6, text: "左歪" },
+                { value: 7, text: "右歪" },
               ].map(({ value, text }) => (
                 <button
                   key={text}

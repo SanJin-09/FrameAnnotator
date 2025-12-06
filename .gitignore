@@ -1,1 +1,6 @@
 /.DS_Store
+data/videos/
+data/frames/
+data/crops/
+data/labels/*.mp4
+data/labels/*.jpg

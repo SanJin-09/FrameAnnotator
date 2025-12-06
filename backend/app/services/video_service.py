@@ -8,7 +8,6 @@ from fastapi import HTTPException, UploadFile
 from app.core import config, utils
 
 MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024  # 5 GB
-ALLOWED_CONTENT_TYPES = {"video/mp4", "application/octet-stream"}
 MAX_CONCURRENT_EXTRACTIONS = 2
 
 _extract_semaphore = BoundedSemaphore(MAX_CONCURRENT_EXTRACTIONS)
@@ -63,11 +62,10 @@ async def store_video(file: UploadFile, session_id: str) -> Path:
     ensure_session_dirs(session_id)
 
     filename = (file.filename or "").lower()
-    if not filename.endswith(".mp4"):
-        raise HTTPException(status_code=400, detail="仅支持 mp4 格式视频")
+    content_type = (file.content_type or "").lower()
 
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(status_code=400, detail="文件格式不被支持")
+    if not filename.endswith(".mp4") and not content_type.startswith("video/"):
+        raise HTTPException(status_code=400, detail="仅支持视频文件，请选择 mp4 或其他视频格式")
 
     destination = config.VIDEOS_DIR / session_id / "raw.mp4"
     size = 0
