@@ -71,8 +71,8 @@ def get_summary(session_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _validate_label(label: int) -> None:
-    if label not in {1, 2, 3, 4, 5, 6, 7}:
-        raise HTTPException(status_code=400, detail="label 需为 1-7 的整数")
+    if label not in {1, 2, 3, 4, 5}:
+        raise HTTPException(status_code=400, detail="label 需为 1-5 的整数")
 
 
 def _validate_bbox(bbox: Dict[str, Any]) -> None:

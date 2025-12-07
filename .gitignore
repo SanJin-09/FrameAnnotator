@@ -1,6 +1,8 @@
-/.DS_Store
-data/videos/
-data/frames/
-data/crops/
-data/labels/*.mp4
-data/labels/*.jpg
+backend/data/videos/
+backend/data/frames/
+backend/data/crops/
+backend/data/labels/
+
+# macOS
+.DS_Store
+backend/.DS_Store
