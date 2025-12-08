@@ -243,6 +243,16 @@ function LabelPage() {
     return `${apiClient.defaults.baseURL}/api/videos/${sessionId}/frames/${currentFrame}`;
   }, [sessionId, currentFrame]);
 
+  const labelCounts = useMemo(() => {
+    const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    Object.values(frameMeta).forEach((meta) => {
+      if (meta?.labeled && meta.label && counts[meta.label] !== undefined) {
+        counts[meta.label] += 1;
+      }
+    });
+    return counts;
+  }, [frameMeta]);
+
   useEffect(() => {
     if (!bbox || !imageUrl) {
       setPreviewUrl(null);
@@ -445,6 +455,13 @@ function LabelPage() {
           {/* Label Group */}
           <div>
             <div style={styles.sectionTitle}>分类标签</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '8px', marginBottom: '12px' }}>
+              <div className="tag">正：{labelCounts[1] ?? 0}</div>
+              <div className="tag">下：{labelCounts[2] ?? 0}</div>
+              <div className="tag">左：{labelCounts[3] ?? 0}</div>
+              <div className="tag">右：{labelCounts[4] ?? 0}</div>
+              <div className="tag">歪：{labelCounts[5] ?? 0}</div>
+            </div>
             <div style={styles.labelGrid}>
               {[
                 { value: 1, text: "正" },
