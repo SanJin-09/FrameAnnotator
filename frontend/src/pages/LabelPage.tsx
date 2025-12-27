@@ -200,9 +200,12 @@ function LabelPage() {
   const [leftHandPreviewUrl, setLeftHandPreviewUrl] = useState<string | null>(null);
   const [rightHandPreviewUrl, setRightHandPreviewUrl] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
-  const [boxSizeInput, setBoxSizeInput] = useState<string>("128");
-  const [boxSize, setBoxSize] = useState<number | null>(128);
-  const [boxSizeInvalid, setBoxSizeInvalid] = useState<boolean>(false);
+  const [headBoxSizeInput, setHeadBoxSizeInput] = useState<string>("128");
+  const [headBoxSize, setHeadBoxSize] = useState<number | null>(128);
+  const [headBoxSizeInvalid, setHeadBoxSizeInvalid] = useState<boolean>(false);
+  const [handBoxSizeInput, setHandBoxSizeInput] = useState<string>("128");
+  const [handBoxSize, setHandBoxSize] = useState<number | null>(128);
+  const [handBoxSizeInvalid, setHandBoxSizeInvalid] = useState<boolean>(false);
   const [status, setStatus] = useState<string>("");
   const [filterUnlabeled, setFilterUnlabeled] = useState<boolean>(false);
   const [inheritEnabled, setInheritEnabled] = useState<boolean>(false);
@@ -262,10 +265,10 @@ function LabelPage() {
   );
 
   const buildBoxesFromKeypoints = useCallback(
-    (pts: Keypoints, size: number) => ({
-      head: pts.head ? buildBoxFromCenter(pts.head, size) : null,
-      left_hand: pts.left_hand ? buildBoxFromCenter(pts.left_hand, size) : null,
-      right_hand: pts.right_hand ? buildBoxFromCenter(pts.right_hand, size) : null,
+    (pts: Keypoints, sizes: { head: number | null; hand: number | null }) => ({
+      head: pts.head && sizes.head ? buildBoxFromCenter(pts.head, sizes.head) : null,
+      left_hand: pts.left_hand && sizes.hand ? buildBoxFromCenter(pts.left_hand, sizes.hand) : null,
+      right_hand: pts.right_hand && sizes.hand ? buildBoxFromCenter(pts.right_hand, sizes.hand) : null,
     }),
     [buildBoxFromCenter]
   );
@@ -360,10 +363,19 @@ function LabelPage() {
   useEffect(() => {
     if (!headBox) return;
     const nextSize = Math.round(headBox.width);
-    setBoxSizeInput(String(nextSize));
-    setBoxSize(nextSize);
-    setBoxSizeInvalid(false);
+    setHeadBoxSizeInput(String(nextSize));
+    setHeadBoxSize(nextSize);
+    setHeadBoxSizeInvalid(false);
   }, [headBox]);
+
+  useEffect(() => {
+    const sourceBox = leftHandBox ?? rightHandBox;
+    if (!sourceBox) return;
+    const nextSize = Math.round(sourceBox.width);
+    setHandBoxSizeInput(String(nextSize));
+    setHandBoxSize(nextSize);
+    setHandBoxSizeInvalid(false);
+  }, [leftHandBox, rightHandBox]);
 
   const imageUrl = useMemo(() => {
     if (!sessionId || !currentFrame) {
@@ -422,23 +434,25 @@ function LabelPage() {
   const handlePointClick = useCallback(
     (pt: Point) => {
       if (!pointMode) return;
-      if (!boxSize || boxSizeInvalid) {
-        setStatus("请先设置选定框边长");
-        return;
-      }
-
       const step = Math.min(nextPointIndex, POINT_SEQUENCE.length - 1);
       const pointKey = POINT_SEQUENCE[step];
+      const isHeadPoint = pointKey === "head";
+      const targetSize = isHeadPoint ? headBoxSize : handBoxSize;
+      const targetInvalid = isHeadPoint ? headBoxSizeInvalid : handBoxSizeInvalid;
+      if (!targetSize || targetInvalid) {
+        setStatus(isHeadPoint ? "请先设置头部框边长" : "请先设置手部框边长");
+        return;
+      }
       const updated: Keypoints = { ...(keypoints || {}), [pointKey]: pt };
       const nextIdx = step + 1;
 
       setKeypoints(updated);
       setNextPointIndex(nextIdx);
 
-      const nextBoxes = buildBoxesFromKeypoints(updated, boxSize);
-      setHeadBox(nextBoxes.head);
-      setLeftHandBox(nextBoxes.left_hand);
-      setRightHandBox(nextBoxes.right_hand);
+      const nextBoxes = buildBoxesFromKeypoints(updated, { head: headBoxSize, hand: handBoxSize });
+      if (nextBoxes.head) setHeadBox(nextBoxes.head);
+      if (nextBoxes.left_hand) setLeftHandBox(nextBoxes.left_hand);
+      if (nextBoxes.right_hand) setRightHandBox(nextBoxes.right_hand);
 
       if (nextIdx >= POINT_SEQUENCE.length) {
         setPointMode(false);
@@ -448,16 +462,25 @@ function LabelPage() {
         setStatus(`已记录${POINT_LABELS[pointKey]}，请点击${nextLabel}`);
       }
     },
-    [boxSize, boxSizeInvalid, buildBoxesFromKeypoints, keypoints, nextPointIndex, pointMode]
+    [
+      buildBoxesFromKeypoints,
+      handBoxSize,
+      handBoxSizeInvalid,
+      headBoxSize,
+      headBoxSizeInvalid,
+      keypoints,
+      nextPointIndex,
+      pointMode,
+    ]
   );
 
   useEffect(() => {
-    if (!boxSize || !keypoints) return;
-    const nextBoxes = buildBoxesFromKeypoints(keypoints, boxSize);
-    setHeadBox(nextBoxes.head);
-    setLeftHandBox(nextBoxes.left_hand);
-    setRightHandBox(nextBoxes.right_hand);
-  }, [boxSize, buildBoxesFromKeypoints, keypoints]);
+    if (!keypoints) return;
+    const nextBoxes = buildBoxesFromKeypoints(keypoints, { head: headBoxSize, hand: handBoxSize });
+    if (nextBoxes.head) setHeadBox(nextBoxes.head);
+    if (nextBoxes.left_hand) setLeftHandBox(nextBoxes.left_hand);
+    if (nextBoxes.right_hand) setRightHandBox(nextBoxes.right_hand);
+  }, [buildBoxesFromKeypoints, handBoxSize, headBoxSize, keypoints]);
 
   const boxes = useMemo(() => {
     const items = [headBox, leftHandBox, rightHandBox].filter(Boolean);
@@ -701,32 +724,66 @@ function LabelPage() {
               </label>
             </div>
             <div style={styles.sectionTitle}>选定框边长</div>
-            <input
-              type="number"
-              min={MIN_BOX_SIZE}
-              value={boxSizeInput}
-              onChange={(e) => {
-                const raw = e.target.value;
-                setBoxSizeInput(raw);
-                const parsed = parseInt(raw, 10);
-                if (Number.isNaN(parsed) || parsed < MIN_BOX_SIZE) {
-                  setBoxSizeInvalid(true);
-                  setBoxSize(null);
-                } else {
-                  setBoxSizeInvalid(false);
-                  setBoxSize(parsed);
-                }
-              }}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: "8px",
-                border: boxSizeInvalid ? "1px solid #d72638" : "1px solid #e5e5e5",
-              }}
-            />
-            {boxSizeInvalid && (
-              <div style={{ color: "#d72638", fontSize: "0.8rem", marginTop: "6px" }}>边长需 ≥ 16</div>
-            )}
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div>
+                <div style={{ fontSize: "0.75rem", color: "#666", marginBottom: "6px" }}>头部</div>
+                <input
+                  type="number"
+                  min={MIN_BOX_SIZE}
+                  value={headBoxSizeInput}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setHeadBoxSizeInput(raw);
+                    const parsed = parseInt(raw, 10);
+                    if (Number.isNaN(parsed) || parsed < MIN_BOX_SIZE) {
+                      setHeadBoxSizeInvalid(true);
+                      setHeadBoxSize(null);
+                    } else {
+                      setHeadBoxSizeInvalid(false);
+                      setHeadBoxSize(parsed);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: headBoxSizeInvalid ? "1px solid #d72638" : "1px solid #e5e5e5",
+                  }}
+                />
+                {headBoxSizeInvalid && (
+                  <div style={{ color: "#d72638", fontSize: "0.8rem", marginTop: "6px" }}>头部边长需 ≥ 16</div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: "0.75rem", color: "#666", marginBottom: "6px" }}>手部</div>
+                <input
+                  type="number"
+                  min={MIN_BOX_SIZE}
+                  value={handBoxSizeInput}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setHandBoxSizeInput(raw);
+                    const parsed = parseInt(raw, 10);
+                    if (Number.isNaN(parsed) || parsed < MIN_BOX_SIZE) {
+                      setHandBoxSizeInvalid(true);
+                      setHandBoxSize(null);
+                    } else {
+                      setHandBoxSizeInvalid(false);
+                      setHandBoxSize(parsed);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: handBoxSizeInvalid ? "1px solid #d72638" : "1px solid #e5e5e5",
+                  }}
+                />
+                {handBoxSizeInvalid && (
+                  <div style={{ color: "#d72638", fontSize: "0.8rem", marginTop: "6px" }}>手部边长需 ≥ 16</div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div>
